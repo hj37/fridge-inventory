@@ -29,12 +29,12 @@ async function scanPhoto(file,state,dialog,showRows) {
   const hash=await crypto.subtle.digest('SHA-256',await file.arrayBuffer());
   state.fingerprint=Array.from(new Uint8Array(hash),byte=>byte.toString(16).padStart(2,'0')).join('');
   const {recognizeReceipt}=await import('./receipt-ocr.js');
-  const text=await recognizeReceipt(file,message=>{if(dialog.open)status.textContent=message.status==='recognizing text'?`영수증 읽는 중… ${Math.round((message.progress||0)*100)}%`:'한국어 인식 준비 중…';},state.controller.signal);
-  if(!dialog.open)return;
+  const text=await recognizeReceipt(file,message=>{if(dialog.open&&!state.controller.signal.aborted)status.textContent=message.status==='recognizing text'?`영수증 읽는 중… ${Math.round((message.progress||0)*100)}%`:'한국어 인식 준비 중…';},state.controller.signal);
+  if(!dialog.open||state.controller.signal.aborted)return;
   document.querySelector('#receipt-text').value=text;state.rows=parseReceipt(text);showRows();
   status.textContent=state.rows.length?`${state.rows.length}개 품목 후보를 찾았어요. 가격이 수량으로 읽히지 않았는지 확인해주세요.`:'품목을 찾지 못했어요. 밝고 선명하게 다시 찍거나 글자를 붙여넣어주세요.';
- }catch(error){if(dialog.open)status.textContent=`사진을 읽지 못했어요. ${error.message} 글자 붙여넣기도 사용할 수 있어요.`;}
- finally {state.ocrBusy=false;if(dialog.open){setReceiptBusy(false);document.querySelector('#receipt-save').disabled=!state.rows.length;}}
+ }catch(error){if(dialog.open&&!state.controller.signal.aborted)status.textContent=`사진을 읽지 못했어요. ${error.message} 글자 붙여넣기도 사용할 수 있어요.`;}
+ finally {state.ocrBusy=false;if(dialog.open&&!state.controller.signal.aborted){setReceiptBusy(false);document.querySelector('#receipt-save').disabled=!state.rows.length;}}
 }
 function setReceiptBusy(value) {
  document.querySelectorAll('#receipt-camera,#receipt-photo,#receipt-parse,#receipt-add-row,#receipt-save').forEach(el=>el.disabled=value);
